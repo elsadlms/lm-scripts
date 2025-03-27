@@ -9,7 +9,7 @@ ALLOWED_INPUT=("jpg" "jpeg" "png" "webp" "avif")
 declare -i QUALITY
 
 # Récupérer les options
-while getopts "c:" opt; do
+while getopts "q:" opt; do
   case $opt in
     q) QUALITY=$OPTARG ;;
     *) echo "Usage : $0 -q <quality>"; exit 1 ;;
