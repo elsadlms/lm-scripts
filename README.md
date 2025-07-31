@@ -62,10 +62,18 @@ brew install ffmpeg
 
 ### compress
 
-Compresse les vidéos du dossier `./input` et les convertit en mp4. Deux vidéos sont créées dans le dossier `./output` : `[filename].mp4` (1600px de largeur) et `[filename]_mobile.mp4` (600px de largeur). Ces valeurs peuvent être modifiées en passant en paramètre les largeurs souhaitées.
+Compresse les vidéos du dossier `./input` et les convertit en mp4, en appliquant le réglage CRF spécifié (par défaut à 28 ; plus le CRF est élevé, plus la compression est forte).
 
 ```bash
-./compress.sh -w <desktop_width> <mobile_width (optional)>
+./compress.sh -crf <crf>
+```
+
+### format
+
+Redimensionne les vidéos du dossier `./input`, par défaut à 1200px et 600px. Ces valeurs peuvent être modifiées en passant en paramètre les largeurs souhaitées.
+
+```bash
+./format.sh -w <width1> <width2> ...
 ```
 
 ### mute
@@ -83,3 +91,19 @@ Extrait la première frame de chaque vidéo du dossier `./input` et la sauvegard
 ```bash
 ./poster.sh
 ```
+
+### process
+
+Un combo de tous les scripts précédents : pour chaque vidéo du dossier `./input`, il redimensionne (par défaut à 1600px, sinon aux largeurs passées en paramètre), extrait un poster, compresse, et supprime la piste audio si le paramètre `-m` est passé.
+
+```bash
+./process.sh -m -crf <crf> -w <width1> <width2> ...
+```
+
+#### Paramètres :
+
+`-m` : supprime l’audio (mute)
+
+`-crf <crf>` : qualité vidéo (plus le CRF est élevé, plus la compression est forte ; par défaut à 28)
+
+`-w <width1> <width2> ...` : une ou plusieurs largeurs cibles, en pixels (ex : `-w 1920 1280 600`)
