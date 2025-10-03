@@ -68,6 +68,14 @@ Compresse les vidéos du dossier `./input` et les convertit en mp4, en appliquan
 ./compress.sh -crf <crf>
 ```
 
+### cut
+
+Coupe les vidéos présentes dans le dossier `./input` selon les timecodes `-start` et `-end`. Ces timecodes sont optionnels. Si `-start` n’est pas précisé, le découpage commence au début de la vidéo. Si `-end` n’est pas précisé, le découpage s’arrête à la fin de la vidéo.
+
+```bash
+./cut.sh -start <HH:MM:SS> -end <HH:MM:SS>
+```
+
 ### format
 
 Redimensionne les vidéos du dossier `./input`, par défaut à 1200px et 600px. Ces valeurs peuvent être modifiées en passant en paramètre les largeurs souhaitées.
