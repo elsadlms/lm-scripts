@@ -116,6 +116,32 @@ Un combo de tous les scripts précédents : pour chaque vidéo du dossier `./inp
 
 `-w <width1> <width2> ...` : une ou plusieurs largeurs cibles, en pixels (ex : `-w 1920 1280 600`)
 
+## Scripts de traitement de fichiers audio
+
+Le dossier `./audio` contient une collection de scripts bash permettant de convertir et découper des fichiers audio. Les fichiers à traiter doivent être placés dans le dossier `./input`, et les fichiers générés sont stockés dans `./output`.
+
+Ces scripts nécessitent l'installation de `ffmpeg`.
+
+```bash
+brew install ffmpeg
+```
+
+### convert
+
+Convertit les fichiers audio du dossier `./input` en mp3 (formats supportés : m4a, mp3).
+
+```bash
+./convert.sh 
+```
+
+### cut
+
+Coupe les fichiers mp3 présents dans le dossier `./input` selon les timecodes `-start` et `-end`. Ces timecodes sont optionnels. Si `-start` n'est pas précisé, le découpage commence au début du fichier. Si `-end` n'est pas précisé, le découpage s'arrête à la fin du fichier.
+
+```bash
+./cut.sh -start <HH:MM:SS> -end <HH:MM:SS>
+```
+
 ## Générer un snippet de cover
 
 ### pipeline
@@ -134,7 +160,7 @@ cp cover/config.sh.example cover/config.sh
 `config.sh` est dans le `.gitignore` et ne doit jamais être commité.
  
 ```bash
-./cover-pipeline.sh [-c "Crédits"] [-q <quality>] [--dry-run]
+./cover-pipeline.sh -c <credits> -q <quality> --dry-run
 ```
  
 #### Paramètres :
