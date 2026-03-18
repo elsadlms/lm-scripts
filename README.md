@@ -115,3 +115,38 @@ Un combo de tous les scripts précédents : pour chaque vidéo du dossier `./inp
 `-crf <crf>` : qualité vidéo (plus le CRF est élevé, plus la compression est forte ; par défaut à 28)
 
 `-w <width1> <width2> ...` : une ou plusieurs largeurs cibles, en pixels (ex : `-w 1920 1280 600`)
+
+## Générer un snippet de cover
+
+### pipeline
+ 
+Redimensionne et compresse le `.jpg` placé dans `./input`, l'uploade sur Google Cloud Storage, et génère un snippet de cover verticale.
+ 
+Le nom du fichier (sans l'extension) est utilisé comme identifiant du projet. Le dossier de destination sur le bucket est automatiquement nommé `yymm-cover-<id>` à partir de la date courante.
+ 
+Ce script nécessite un accès à Google Cloud Storage (`gsutil` + `gcloud`), ainsi qu'un fichier `config.sh` à créer localement à partir du fichier d'exemple fourni :
+ 
+```bash
+cp cover/config.sh.example cover/config.sh
+# puis éditer config.sh avec les vraies valeurs
+```
+ 
+`config.sh` est dans le `.gitignore` et ne doit jamais être commité.
+ 
+```bash
+./cover-pipeline.sh [-c "Crédits"] [-q <quality>] [--dry-run]
+```
+ 
+#### Paramètres :
+ 
+`-c <credits>` : texte des crédits à insérer dans le snippet (vide par défaut)
+ 
+`-q <quality>` : qualité de compression, entre 0 et 100 (par défaut à 85)
+ 
+`--dry-run` : affiche les commandes `gsutil` sans les exécuter
+ 
+#### Notes :
+ 
+- Le script demande une confirmation avant d'uploader sur GCS. `--dry-run` permet de simuler l'ensemble du pipeline sans rien envoyer.
+- Si la session `gcloud` est expirée, le script lance automatiquement `gcloud auth login`.
+- Les fichiers générés sont sauvegardés dans `./output` : l'image compressée (`cover.jpg`) et le snippet (`snippet-yymm-cover-<id>.txt`).

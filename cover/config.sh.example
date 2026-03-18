@@ -1,0 +1,5 @@
+# Fichier à dupliquer et renommer config.sh en renseignant les valeurs.
+# config.sh est dans .gitignore et ne doit pas être commité.
+
+BUCKET="gs://mon-bucket/mon-dossier"
+ASSETS_BASE_URL="https://mes-assets.example.com/mon-dossier"
