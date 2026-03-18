@@ -5,3 +5,7 @@ images/output/*
 
 videos/input/*
 videos/output/*
+
+cover/input/*
+cover/output/*
+cover/config.sh
