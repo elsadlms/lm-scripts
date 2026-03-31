@@ -169,6 +169,7 @@ python transcribe.py audio.mp3
 #### Paramètres :
 
 `--words <N>` : nombre maximum de mots par ligne de sous-titre (par défaut à 6)
+
 `--model <model>` : modèle Whisper à utiliser (par défaut `base`)
 
 | Modèle | Taille | Précision |
@@ -217,3 +218,19 @@ cp cover/config.sh.example cover/config.sh
 - Le script demande une confirmation avant d'uploader sur GCS. `--dry-run` permet de simuler l'ensemble du pipeline sans rien envoyer.
 - Si la session `gcloud` est expirée, le script lance automatiquement `gcloud auth login`.
 - Les fichiers générés sont sauvegardés dans `./output` : l'image compressée (`cover.jpg`) et le snippet (`snippet-yymm-cover-<id>.txt`).
+
+## Récupérer le contenu d'un article
+
+### extract-paragraphs (python)
+
+Extrait les paragraphes et sous-titres d'un fichier HTML d'aperçu d'article en filtrant les balises `<p>` et `<h2>` portant les classes `article__paragraph` ou `article__sub-title`, et les réécrit sans attributs dans un nouveau fichier HTML allégé.
+
+**Utilisation :**
+
+Ouvrir l'aperçu d'un article dans Sirius et copier le HTML brut dans un fichier `.html` dans le dossier `./input`, puis exécuter :
+
+```bash
+python extract-paragraphs.py
+```
+
+Tous les fichiers `.html` présents dans `./input` seront traités, et les résultats sauvegardés dans `./output` sous le même nom de fichier.
