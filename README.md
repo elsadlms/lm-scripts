@@ -70,7 +70,7 @@ Compresse les vidéos du dossier `./input` et les convertit en mp4, en appliquan
 
 ### cut
 
-Coupe les vidéos présentes dans le dossier `./input` selon les timecodes `-start` et `-end`. Ces timecodes sont optionnels. Si `-start` n’est pas précisé, le découpage commence au début de la vidéo. Si `-end` n’est pas précisé, le découpage s’arrête à la fin de la vidéo.
+Coupe les vidéos présentes dans le dossier `./input` selon les timecodes `-start` et `-end`. Ces timecodes sont optionnels. Si `-start` n'est pas précisé, le découpage commence au début de la vidéo. Si `-end` n'est pas précisé, le découpage s'arrête à la fin de la vidéo.
 
 ```bash
 ./cut.sh -start <HH:MM:SS> -end <HH:MM:SS>
@@ -110,7 +110,7 @@ Un combo de tous les scripts précédents : pour chaque vidéo du dossier `./inp
 
 #### Paramètres :
 
-`-m` : supprime l’audio (mute)
+`-m` : supprime l'audio (mute)
 
 `-crf <crf>` : qualité vidéo (plus le CRF est élevé, plus la compression est forte ; par défaut à 28)
 
@@ -128,7 +128,7 @@ brew install ffmpeg
 
 ### convert
 
-Convertit les fichiers audio du dossier `./input` en mp3 (formats supportés : m4a, mp3).
+Convertit les fichiers audio du dossier `./input` en mp3 (formats supportés : m4a, wav, mp3).
 
 ```bash
 ./convert.sh 
@@ -140,6 +140,47 @@ Coupe les fichiers mp3 présents dans le dossier `./input` selon les timecodes `
 
 ```bash
 ./cut.sh -start <HH:MM:SS> -end <HH:MM:SS>
+```
+
+### transcribe (python)
+
+Transcrit les fichiers mp3 du dossier `./input` en utilisant Whisper en local (gratuit, aucune clé API requise) et génère pour chaque fichier :
+- un fichier `./output/[nom].txt` avec la transcription brute
+- un fichier `./output/[nom].srt` au format sous-titres SRT
+
+Ce script nécessite Python et l'installation de `openai-whisper`.
+
+```bash
+pip install openai-whisper
+```
+
+Traiter tous les fichiers du dossier `./input` :
+
+```bash
+python transcribe.py
+```
+
+Traiter un fichier spécifique :
+
+```bash
+python transcribe.py audio.mp3
+```
+
+#### Paramètres :
+
+`--words <N>` : nombre maximum de mots par ligne de sous-titre (par défaut à 6)
+`--model <model>` : modèle Whisper à utiliser (par défaut `base`)
+
+| Modèle | Taille | Précision |
+|--------|--------|-----------|
+| `tiny` | ~75 MB | faible |
+| `base` | ~150 MB | correcte |
+| `small` | ~460 MB | bonne |
+| `medium` | ~1.5 GB | très bonne |
+| `large` | ~3 GB | maximale |
+
+```bash
+python transcribe.py audio.mp3 --words 8 --model small
 ```
 
 ## Générer un snippet de cover

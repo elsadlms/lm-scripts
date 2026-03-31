@@ -8,7 +8,7 @@ OUTPUT_DIR="./output"
 [ ! -d "$OUTPUT_DIR" ] && mkdir -p "$OUTPUT_DIR"
 
 # Supported audio extensions
-EXTENSIONS=("m4a" "mp3")
+EXTENSIONS=("m4a" "mp3" "wav" "WAV")
 
 # Default bitrate if none provided
 BITRATE="192k"
@@ -38,6 +38,12 @@ for ext in "${EXTENSIONS[@]}"; do
         base="${filename%.$ext}"
 
         output_file="$OUTPUT_DIR/${base}.mp3"
+
+        # Skip if input is already an mp3 with the same base name
+        if [[ "$ext" == "mp3" && -f "$output_file" ]]; then
+            echo "Skipping $f (output already exists)"
+            continue
+        fi
 
         echo "Converting $f → $output_file"
         ffmpeg -i "$f" -vn -ar 44100 -ac 2 -b:a "$BITRATE" "$output_file"
