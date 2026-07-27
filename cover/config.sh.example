@@ -3,3 +3,8 @@
 
 BUCKET="gs://mon-bucket/mon-dossier"
 ASSETS_BASE_URL="https://mes-assets.example.com/mon-dossier"
+
+# API Sirius 
+# Token à générer ici : https://lemonde.sirius.press/account-settings/developer
+SIRIUS_GRAPHQL_ENDPOINT="https://lemonde.sirius.press/api/public/graphql"
+SIRIUS_API_TOKEN="mon-token"

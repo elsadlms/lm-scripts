@@ -19,6 +19,7 @@
 # Requirements:
 #   - ImageMagick (magick, identify)
 #   - gsutil + gcloud (Google Cloud SDK)
+#   - curl + jq (Sirius CMS snippet creation)
 # =============================================================================
 
 set -e
@@ -36,6 +37,73 @@ ok()     { echo -e "${GREEN}✔${NC} $1"; }
 warn()   { echo -e "${YELLOW}⚠${NC} $1"; }
 error()  { echo -e "${RED}✖${NC} $1"; exit 1; }
 header() { echo -e "\n${BOLD}$1${NC}"; }
+
+# ── Sirius: create snippet via GraphQL API ────────────────────────────────────
+# Sets SNIPPET_URL on success. Returns 1 (without exiting, since `set -e` doesn't
+# trigger on function calls checked in an `if`/`||`) on failure so the caller can
+# warn and continue rather than aborting the rest of the batch.
+create_sirius_snippet() {
+  local title="$1"
+  local html_file="$2"
+
+  local html_content
+  html_content=$(cat "$html_file")
+
+  local query='mutation ($name: String!, $html: String!, $darkModeSupported: Boolean) {
+  createSnippet(input: { name: $name, html: $html, darkModeSupported: $darkModeSupported }) {
+    id
+    name
+  }
+}'
+
+  local payload
+  payload=$(jq -n \
+    --arg query "$query" \
+    --arg name "$title" \
+    --arg html "$html_content" \
+    '{query: $query, variables: {name: $name, html: $html, darkModeSupported: true}}')
+
+  local response
+  response=$(curl -s \
+    -H "Authorization: bearer ${SIRIUS_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -X POST -d "$payload" \
+    "$SIRIUS_GRAPHQL_ENDPOINT")
+
+  local gql_errors
+  gql_errors=$(echo "$response" | jq -r '.errors // empty')
+  if [ -n "$gql_errors" ]; then
+    warn "Sirius snippet creation failed for '$title':"
+    echo "$response" | jq '.errors'
+    return 1
+  fi
+
+  local snippet_id
+  snippet_id=$(echo "$response" | jq -r '.data.createSnippet.id // empty')
+  if [ -z "$snippet_id" ]; then
+    warn "Sirius snippet creation returned no id for '$title'. Raw response: $response"
+    return 1
+  fi
+
+  # snippet_id is a base64-encoded Relay global ID ("lemonde:Snippet:<numeric-id>").
+  # The /snippets/ URL wants the numeric id, so decode it (padding to a multiple of 4 first).
+  local padded="$snippet_id"
+  case $(( ${#padded} % 4 )) in
+    2) padded="${padded}==" ;;
+    3) padded="${padded}=" ;;
+  esac
+  local decoded numeric_id
+  decoded=$(echo "$padded" | base64 -d 2>/dev/null)
+  numeric_id="${decoded##*:}"
+
+  if [[ "$numeric_id" =~ ^[0-9]+$ ]]; then
+    SNIPPET_URL="https://lemonde.sirius.press/snippets/${numeric_id}"
+  else
+    warn "Could not decode numeric id from '$snippet_id', omitting Sirius URL"
+    SNIPPET_URL=""
+  fi
+  ok "Snippet created in Sirius${SNIPPET_URL:+: $SNIPPET_URL}"
+}
 
 # ── Load config ───────────────────────────────────────────────────────────────
 CONFIG_FILE="$(dirname "$0")/config.sh"
@@ -75,6 +143,7 @@ ok "Found ${#FILES[@]} image(s) in $INPUT_FOLDER"
 $DRY_RUN && warn "Mode:       DRY RUN — gcloud commands will be printed but not executed"
 
 YYMM=$(date +"%y%m")
+YYMMDD=$(date +"%y%m%d")
 
 # ── Build per-image plan ──────────────────────────────────────────────────────
 header "📋 Building batch plan"
@@ -83,12 +152,15 @@ PROJECT_IDS=()
 FOLDER_NAMES=()
 COVER_URLS=()
 CREDITS_LIST=()
+SNIPPET_TITLES=()
+SNIPPET_URLS=()
 
 for FILE in "${FILES[@]}"; do
   FILENAME=$(basename "$FILE")
   PROJECT_ID="${FILENAME%.*}"
   FOLDER_NAME="${YYMM}-cover-${PROJECT_ID}"
   COVER_URL="${ASSETS_BASE_URL}/${FOLDER_NAME}/cover.jpg"
+  SNIPPET_TITLE="${YYMMDD} - Cover - ${PROJECT_ID}"
 
   CREDITS_FILE="${INPUT_FOLDER}/${PROJECT_ID}.txt"
   if [ -f "$CREDITS_FILE" ]; then
@@ -102,6 +174,8 @@ for FILE in "${FILES[@]}"; do
   FOLDER_NAMES+=("$FOLDER_NAME")
   COVER_URLS+=("$COVER_URL")
   CREDITS_LIST+=("$CREDITS")
+  SNIPPET_TITLES+=("$SNIPPET_TITLE")
+  SNIPPET_URLS+=("")
 
   echo ""
   ok "File:       $FILE"
@@ -109,6 +183,7 @@ for FILE in "${FILES[@]}"; do
   ok "Folder:     $FOLDER_NAME"
   ok "URL:        $COVER_URL"
   ok "Credits:    ${CREDITS:-<empty>}"
+  ok "Snippet:    $SNIPPET_TITLE"
 done
 
 # ── Check gcloud authentication ───────────────────────────────────────────────
@@ -125,22 +200,23 @@ fi
 ok "Authenticated with GCloud"
 
 # ── Show upload plan + confirm ────────────────────────────────────────────────
-header "☁️  GCloud upload plan"
+header "☁️  Publish plan"
 echo ""
 echo -e "  For each of the ${#FILES[@]} image(s), scoped to its own dated subfolder (no full-bucket listing):"
 for FOLDER_NAME in "${FOLDER_NAMES[@]}"; do
   echo -e "    ${BOLD}1.${NC} gsutil -m -h \"Cache-Control:public, max-age=60\" rsync -crpj txt <workspace>/${FOLDER_NAME}/ ${BUCKET}/${FOLDER_NAME}/"
   echo -e "    ${BOLD}2.${NC} gsutil -m acl -r ch -u allUsers:R ${BUCKET}/${FOLDER_NAME}/"
 done
+echo -e "  ${BOLD}3.${NC} createSnippet mutation (once per image) → ${SIRIUS_GRAPHQL_ENDPOINT}"
 echo ""
 
 if $DRY_RUN; then
   warn "Dry run: commands above will be skipped."
 else
-  echo -ne "${YELLOW}Proceed with upload? [y/N]${NC} "
+  echo -ne "${YELLOW}Proceed with upload + Sirius snippet creation? [y/N]${NC} "
   read -r CONFIRM
   if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-    warn "Upload cancelled. Image processing will continue, but nothing will be uploaded."
+    warn "Cancelled. Image processing will continue, but nothing will be uploaded or created in Sirius."
     DRY_RUN=true
   fi
 fi
@@ -291,21 +367,42 @@ else
   ok "Upload complete, permissions set"
 fi
 
+# ── Create snippets in Sirius CMS ─────────────────────────────────────────────
+header "🧩 Creating snippets in Sirius CMS"
+
+if $DRY_RUN; then
+  warn "Dry run: skipping Sirius snippet creation"
+else
+  for i in "${!FILES[@]}"; do
+    PROJECT_ID="${PROJECT_IDS[$i]}"
+    FOLDER_NAME="${FOLDER_NAMES[$i]}"
+    SNIPPET_TITLE="${SNIPPET_TITLES[$i]}"
+    OUTPUT_SNIPPET="./output/snippet-${FOLDER_NAME}.txt"
+
+    log "Title: $SNIPPET_TITLE"
+    SNIPPET_URL=""
+    create_sirius_snippet "$SNIPPET_TITLE" "$OUTPUT_SNIPPET" || warn "Continuing without Sirius snippet for $PROJECT_ID (see error above)"
+    SNIPPET_URLS[$i]="$SNIPPET_URL"
+  done
+fi
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$WORK_ROOT"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 header "✅ Batch pipeline complete"
-$DRY_RUN && warn "GCloud upload was skipped (dry run or cancelled)"
+$DRY_RUN && warn "GCloud upload / Sirius snippet creation was skipped (dry run or cancelled)"
 
 for i in "${!FILES[@]}"; do
   PROJECT_ID="${PROJECT_IDS[$i]}"
   FOLDER_NAME="${FOLDER_NAMES[$i]}"
   COVER_URL="${COVER_URLS[$i]}"
+  SNIPPET_URL="${SNIPPET_URLS[$i]}"
   echo ""
   echo -e "  ${BOLD}Project:${NC}      $PROJECT_ID"
   echo -e "  ${BOLD}Cover URL:${NC}    $COVER_URL"
   echo -e "  ${BOLD}Snippet:${NC}      ./output/snippet-${FOLDER_NAME}.txt"
   echo -e "  ${BOLD}Image:${NC}        ./output/cover-${PROJECT_ID}.jpg"
+  [ -n "$SNIPPET_URL" ] && echo -e "  ${BOLD}Sirius:${NC}       $SNIPPET_URL"
 done
 echo ""
